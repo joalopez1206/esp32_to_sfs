@@ -1,0 +1,104 @@
+void client(void *params);
+void server(void *params);
+
+#define MY_SERVER_PORT		10
+static unsigned int server_received = 0;
+static uint8_t server_address = 255;
+int test_mode = TRUE;
+
+
+void client(void *params) {
+    csp_print("Client task started");
+
+	unsigned int count = 'A';
+
+	while (1) {
+
+		usleep(test_mode ? 200000 : 1000000);
+
+		/* Send ping to server, timeout 1000 mS, ping size 100 bytes */
+		int result = csp_ping(server_address, 1000, 100, CSP_O_NONE);
+		csp_print("Ping address: %u, result %d [mS]\n", server_address, result);
+        (void) result;
+
+		/* Send reboot request to server, the server has no actual implementation of csp_sys_reboot() and fails to reboot */
+		csp_reboot(server_address);
+		csp_print("reboot system request sent to address: %u\n", server_address);
+
+		/* Send data packet (string) to server */
+
+		/* 1. Connect to host on 'server_address', port MY_SERVER_PORT with regular UDP-like protocol and 1000 ms timeout */
+		csp_conn_t * conn = csp_connect(CSP_PRIO_NORM, server_address, MY_SERVER_PORT, 1000, CSP_O_NONE);
+		if (conn == NULL) {
+			/* Connect failed */
+			csp_print("Connection failed\n");
+			return;
+		}
+
+		/* 2. Get packet buffer for message/data */
+		csp_packet_t * packet = csp_buffer_get(100);
+		if (packet == NULL) {
+			/* Could not get buffer element */
+			csp_print("Failed to get CSP buffer\n");
+			return;
+		}
+
+		/* 3. Copy data to packet */
+        memcpy(packet->data, "Hello world ", 12);
+        memcpy(packet->data + 12, &count, 1);
+        memset(packet->data + 13, 0, 1);
+        count++;
+
+		/* 4. Set packet length */
+		packet->length = (strlen((char *) packet->data) + 1); /* include the 0 termination */
+
+		/* 5. Send packet */
+		csp_send(conn, packet);
+
+		/* 6. Close connection */
+		csp_close(conn);
+	}
+}
+
+void server(void *params) {
+    csp_print("Server task started\n");
+
+	//creamos un socket con nada
+	csp_socket_t sock = {0};
+
+	//bindeamos el socket a cualquier puerto
+	csp_bind(&sock, CSP_ANY);
+
+	//tipico listen con soporte de 10 encolamientos
+	csp_listen(&sock, 10);
+
+    //LOOP
+    while(TRUE){
+        //accept tiene un timeout por lo tanto despues del timeout preguntamos denuevo
+        csp_conn_t *conn;
+		if ((conn = csp_accept(&sock, 10000)) == NULL) {
+			continue;
+		}
+
+        //A este punto ya estamos conectados!
+        csp_packet_t *packet; //definimos un packet con timeout denuevo, si es en nuestro puerto, entonces de panaa
+		while ((packet = csp_read(conn, 50)) != NULL) {
+			switch (csp_conn_dport(conn)) {//caso switch TODO: por entender, creo que se conecta al puerto especifico
+			case MY_SERVER_PORT:
+				// aqui procesamos el packet
+				csp_print("Packet received on MY_SERVER_PORT: %s\n", (char *) packet->data);
+				csp_buffer_free(packet);
+				++server_received;
+				break;
+
+			default:
+				//si no, hacemos un default
+				csp_service_handler(packet);
+				break;
+			}
+		}
+
+		/* Close current connection */
+		csp_close(conn);
+    }
+}
