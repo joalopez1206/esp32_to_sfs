@@ -79,7 +79,7 @@ void server(void) {
 /* Client task sending requests to server task */
 void client(void) {
 
-	csp_print("Client task started");
+	csp_print("Client task started\n");
 
 	unsigned int count = 'A';
 
@@ -267,6 +267,4 @@ void app_main(void) {
             exit(0);
         }
     }
-
-    return 0;
 }
