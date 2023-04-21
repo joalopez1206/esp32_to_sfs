@@ -10,7 +10,8 @@ Any comments are welcome!
 ## Setup!
 1. get the espressif idf
 2. clone this repo in the same directory where the esp-idf directory is.
-3. use the command `get_idf` or `. export ...` (see the tutorial)
-4. cd esp32_to_sfs
-5. `idf.py build` to build the project
-6. `idf.py flash` to flash it to the esp32
+3. use the command `get_idf` or `. export ...` to activate the venv of espressif idf.(see the tutorial) 
+4. `cd esp32_to_sfs`
+5. Use `git submodule init` and `git submodule update`
+6. `idf.py build` to build the project
+7. `idf.py flash` to flash it to the esp32
